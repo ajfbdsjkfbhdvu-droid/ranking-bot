@@ -1,25 +1,42 @@
-const noblox = require("noblox.js");
-const express = require("express");
+import 'dotenv/config';
+import express from 'express';
+import { Client, GatewayIntentBits } from 'discord.js';
+
 const app = express();
+const port = process.env.PORT || 3000;
+
+// Parse JSON from Roblox
 app.use(express.json());
 
-async function startBot() {
-    await noblox.setCookie(process.env.ROBLOX_COOKIE);
-    console.log("Bot is online!");
-}
+// Discord bot setup
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
-app.post("/rank", async (req, res) => {
+client.once('ready', () => {
+    console.log(`Discord bot logged in as ${client.user.tag}`);
+});
+
+// Endpoint for Roblox script to call
+app.post('/promote', async (req, res) => {
+    const username = req.body.username;
+    if (!username) return res.status(400).send('Missing username');
+
     try {
-        const userId = req.body.userId;
-        const rank = req.body.rank;
+        const channel = client.channels.cache.get(process.env.CHANNEL_ID);
+        if (!channel) return res.status(500).send('Channel not found');
 
-        await noblox.setRank(process.env.GROUP_ID, userId, rank);
-
-        res.send("Rank updated!");
+        await channel.send(`/promote ${username}`);
+        console.log(`Sent /promote command for ${username}`);
+        res.send(`Promote command sent for ${username}`);
     } catch (err) {
-        res.status(500).send(err.toString());
+        console.error(err);
+        res.status(500).send('Error sending promote command');
     }
 });
 
-startBot();
-app.listen(10000);
+// Log in to Discord
+client.login(process.env.DISCORD_TOKEN);
+
+// Start HTTP server
+app.listen(port, () => {
+    console.log(`Render server listening on port ${port}`);
+});
